@@ -18,6 +18,7 @@ typedef struct {
     gpio_num_t scl_io;      /*!< Numéro GPIO pour SCL */
     uint32_t clk_speed_hz;  /*!< Vitesse d'horloge (ex: 100000 pour 100kHz) */
     uint32_t timeout_ms;    /*!< Timeout pour le clock stretching en ms */
+    bool pec_enable;        /*!< Active le PEC (CRC-8) sur toutes les transactions */
 } soft_smbus_config_t;
 
 typedef struct soft_smbus_obj_t* soft_smbus_handle_t;
@@ -41,6 +42,19 @@ esp_err_t soft_smbus_new_bus(const soft_smbus_config_t *config, soft_smbus_handl
  * @return esp_err_t ESP_OK en cas de succès
  */
 esp_err_t soft_smbus_del_bus(soft_smbus_handle_t handle);
+
+/**
+ * @brief Active ou désactive le PEC (Packet Error Checking) à l'exécution
+ *
+ * Avec le PEC actif, un octet CRC-8 (poly 0x07) est ajouté aux écritures et
+ * vérifié sur les lectures. Une erreur de CRC renvoie ESP_ERR_INVALID_CRC.
+ * Le probe (Quick Command) n'utilise jamais le PEC.
+ *
+ * @param handle Handle du bus
+ * @param enable true pour activer le PEC
+ * @return esp_err_t ESP_OK en cas de succès
+ */
+esp_err_t soft_smbus_set_pec(soft_smbus_handle_t handle, bool enable);
 
 /**
  * @brief Probing d'un périphérique SMBus

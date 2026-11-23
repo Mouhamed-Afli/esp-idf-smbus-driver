@@ -78,6 +78,7 @@ void app_main(void)
         .scl_io = SMBUS_SCL_IO,
         .clk_speed_hz = SMBUS_CLK_HZ,
         .timeout_ms = SMBUS_TIMEOUT_MS,
+        .pec_enable = true,     /* CRC-8 on every transfer; set false if your device has no PEC */
     };
     ESP_ERROR_CHECK(soft_smbus_new_bus(&cfg, &smbus_handle));
 

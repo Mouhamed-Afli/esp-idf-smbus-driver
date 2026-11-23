@@ -10,6 +10,7 @@ use the hardware I2C peripheral.
 
 - SMBus Quick probe, Read/Write Byte, Read/Write Word, Block Read/Write
 - Data Flash read/write for BQ gauges (`soft_smbus_read_df_reg` / `soft_smbus_write_df_reg`)
+- Optional PEC (Packet Error Checking, CRC-8) on all transfers except the probe
 - Clock stretching with a configurable timeout
 - Open-drain GPIOs: no direction switching in the bit loop
 
@@ -57,6 +58,7 @@ void app_main(void)
         .scl_io = GPIO_NUM_22,
         .clk_speed_hz = 100000,
         .timeout_ms = 35,
+        .pec_enable = true,
     };
     ESP_ERROR_CHECK(soft_smbus_new_bus(&cfg, &smbus_handle));
 
@@ -66,6 +68,22 @@ void app_main(void)
     }
 }
 ```
+
+## PEC (Packet Error Checking)
+
+When `pec_enable` is true, the driver adds an SMBus CRC-8 byte (polynomial
+0x07) to every write and checks it on every read. The CRC covers the address
+bytes, the command and all data. A mismatch returns `ESP_ERR_INVALID_CRC`.
+
+You can switch PEC on or off at runtime:
+
+```c
+soft_smbus_set_pec(smbus_handle, false);
+```
+
+Only enable PEC if the device supports it. A device without PEC will not send
+the extra byte on reads (the check fails), and may reject the extra byte on
+writes. `soft_smbus_probe` never uses PEC.
 
 ## Using the driver in another project
 
@@ -82,6 +100,7 @@ idf_component_register(SRCS "app.c"
 | Function | SMBus protocol |
 |---|---|
 | `soft_smbus_new_bus` / `soft_smbus_del_bus` | Create / free a bus |
+| `soft_smbus_set_pec` | Turn PEC on or off |
 | `soft_smbus_probe` | Quick command (address ACK check) |
 | `soft_smbus_read_byte` / `soft_smbus_write_byte` | Read / Write Byte |
 | `soft_smbus_read_word` / `soft_smbus_write_word` | Read / Write Word (little-endian) |
@@ -93,13 +112,13 @@ All functions return `esp_err_t`:
 - `ESP_OK`: success
 - `ESP_FAIL`: the device did not ACK (NACK)
 - `ESP_ERR_TIMEOUT`: SCL was held low longer than `timeout_ms`
+- `ESP_ERR_INVALID_CRC`: PEC mismatch
 - `ESP_ERR_INVALID_ARG`: bad handle, address or buffer
 - `ESP_ERR_INVALID_RESPONSE`: Data Flash reply too short
 
 ## Limitations
 
 - Not thread-safe: if several tasks share one bus, protect it with your own mutex.
-- PEC (packet error checking) is not supported.
 - The real clock is a little slower than `clk_speed_hz` because of GPIO call
   overhead. This is within SMBus limits (10–100 kHz).
 - The driver does not recover a stuck bus (it does not clock out a slave holding SDA low).
